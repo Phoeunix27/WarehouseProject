@@ -54,27 +54,45 @@ end
 ; ----------------------------------------
 to setup-doors
   ; main entrance (big enough for trucks)
-  ask patches with [pxcor >= -3 and pxcor <= 3 and pycor = 0] [
-    set pcolor brown
+  ; Draw the left wall with a big folding door
+ask patches [
+  if (pycor = 0) [
+    if (pxcor >= -15 and pxcor < -6) or (pxcor > 6 and pxcor <= 15) [
+      set pcolor black ; solid wall above and below the door
+    ]
+    if (pxcor >= 0 and pxcor <= 8) [
+      set pcolor magenta ; big folding door
+    ]
   ]
+]
   create-markers 1 [
-    set shape "circle" set size 0.1 set color black
-    setxy 0 -1
-    set label "Main Entrance"
+    set shape "circle" set size 0.5 set color black
+    setxy 7 -2
+    set label "Main Entrance  "
     set label-color black
   ]
   
   ; other doors
-  ask patch -15 10 [ set pcolor brown ]
-  ask patch 15 12 [ set pcolor brown ]
-  ask patch -5 20 [ set pcolor brown ]
-  ask patch 5 20 [ set pcolor brown ]
+  ;ask patch -15 9 [ set pcolor brown ]
+  ;ask patch -15 10 [ set pcolor brown ]
+  ;after combining upper code to create 1 big door
+  ask patches with [
+  pxcor = -15 and pycor >= 9 and pycor <= 10
+  ] 
+  [ set pcolor brown]
+  ask patch 15 17 [ set pcolor brown ] ;left exit door
+  ask patch 15 10 [ set pcolor brown ] ;left exit door
+  ask patches with [
+    pxcor >= -14 and pxcor <= -13 and pycor = 0
+  ]
+  [ set pcolor brown ]
+  ;ask patch 5 20 [ set pcolor brown ]
 end
 
 ; ----------------------------------------
 to setup-office
   ask patches with [
-    pxcor >= -4 and pxcor <= 4 and
+    pxcor >= -10 and pxcor <= -2 and
     pycor >= 0 and pycor <= 4
   ][
     set pcolor gray + 1.5
@@ -82,20 +100,20 @@ to setup-office
   
   ; office walls
   ask patches [
-    if ((pxcor = -4 or pxcor = 4) and pycor >= 0 and pycor <= 4) [
+    if ((pxcor = -10 or pxcor = -2) and pycor >= 0 and pycor <= 4) [
       set pcolor black
     ]
-    if ((pycor = 0 or pycor = 4) and pxcor >= -4 and pxcor <= 4) [
+    if ((pycor = 0 or pycor = 4) and pxcor >= -10 and pxcor <= -2) [
       set pcolor black
     ]
   ]
   
-  ask patch 0 4 [ set pcolor brown ] ; door to warehouse
-  ask patch -4 2 [ set pcolor brown ] ; door to outside
+  ask patch -3 4 [ set pcolor brown ] ; door to warehouse
+  ask patch -8 0 [ set pcolor brown ] ; door to outside
   
   create-markers 1 [
     set shape "circle" set size 0.1 set color black
-    setxy 0 2
+    setxy -3 2
     set label "Meeting Room"
     set label-color black
   ]
@@ -112,35 +130,50 @@ to setup-shelves
 end
 
 ; ----------------------------------------
+; to setup the forklift inside and also outside the warehouse
 to setup-forklifts
-  create-forklifts 4 [
-    set shape "car" set color yellow set size 2
-    setxy random-float 10 - 5 random-float 10 - 5
+  create-forklifts 6 [
+    set shape "car"
+    set color yellow
+    set size 2
     set heading one-of [0 90 180 270]
+    
+    ifelse who mod 2 = 0 [
+      ; inside warehouse: move to gray patches inside
+      move-to one-of patches with [
+        pcolor = gray and pxcor >= -15 and pxcor <= 15 and pycor >= -15 and pycor <= 15
+      ]
+    ] [
+      ; outside warehouse: move to grass patches outside
+      move-to one-of patches with [
+        ;green + 2 means green with 2 times lighter than usual green
+        pcolor = green + 2 and ((abs pxcor > 15 and abs pxcor < 18) or 
+          (abs pycor > 15 and abs pycor < 18))
+      ]
+    ]
   ]
 end
 
+
 ; ----------------------------------------
 to setup-goods
-  create-goods 30 [
-    set shape "box" 
-    set color blue - 2 
+  create-goods 150 [
+    set shape "box"
+    set color blue - 2
     set size 1.5
-    setxy random-float 10 - 10 random-float 30 - 15
-    setxy random-float 10 + 5 random-float 30 - 15
-    
+    move-to one-of patches with [pcolor = brown + 1]
   ]
 end
 
 ; ----------------------------------------
 to setup-lorries
   create-lorries 2 [
-    set shape "truck" set color red set size 3
+    set shape "truck" set color red set size 5
     ifelse who mod 2 = 0 [
-      setxy -3 -5
+      setxy -3 -10
       set heading 0
     ][
-      setxy 3 -5
+      setxy 3 -10
       set heading 0
     ]
   ]
@@ -148,22 +181,24 @@ end
 
 ; ----------------------------------------
 to setup-guardhouse
-  ask patches with [pxcor >= -12 and pxcor <= -10 and pycor >= -8 and pycor <= -6] [
+  ask patches with [pxcor >= -19 and pxcor <= -17 and pycor >= -8 and pycor <= -6] [
     set pcolor gray + 1
   ]
   
   ask patches [
-    if ((pxcor = -12 or pxcor = -10) and pycor >= -8 and pycor <= -6) [
+    ;side part
+    if ((pxcor = -19 or pxcor = -17) and pycor >= -8 and pycor <= -6) [
       set pcolor black
     ]
-    if ((pycor = -8 or pycor = -6) and pxcor >= -12 and pxcor <= -10) [
+    ;upper part
+    if ((pycor = -8 or pycor = -6) and pxcor >= -19 and pxcor <= -17) [
       set pcolor black
     ]
   ]
   
   create-markers 1 [
     set shape "circle" set size 0.1 set color black
-    setxy -11 -7
+    setxy -15 -5
     set label "Guard House"
     set label-color black
   ]
@@ -182,14 +217,18 @@ to setup-assembly-points
   set assembly-point2 patch 10 -10
   
   create-markers 1 [
-    set shape "circle" set size 0.1 set color black
-    setxy -10 -10
+    set shape "circle" 
+    set size 0.1 
+    set color magenta
+    setxy -7 -13.5
     set label "Assembly Point"
     set label-color black
   ]
   create-markers 1 [
-    set shape "circle" set size 0.1 set color black
-    setxy 10 -10
+    set shape "circle" 
+    set size 0.1 
+    set color black
+    setxy 13 -13.5
     set label "Assembly Point"
     set label-color black
   ]
