@@ -1,0 +1,368 @@
+breed [forklifts forklift]
+breed [lorries lorry]
+breed [goods good]
+breed [people person]
+breed [markers marker]
+
+forklifts-own [avoid-obstacle follow-path]
+lorries-own [wait-for-loading leave-depot]
+people-own [walk direction evacuated?]
+patches-own [burning? wall? parcel? doors? assembly?]
+
+globals [
+  assembly-point1
+  assembly-point2
+]
+
+to setup
+  clear-all
+  setup-ground
+  setup-warehouse
+  setup-doors
+  setup-office
+  setup-shelves
+  setup-forklifts
+  setup-goods
+  setup-lorries
+  setup-guardhouse
+  setup-assembly-points
+  setup-people
+  reset-ticks
+  ignite-fire
+end
+
+to setup-ground
+  ask patches [ 
+    set pcolor green + 2
+    set burning? false
+    set wall? false
+    set parcel? false
+    set doors? false
+    set assembly? false
+  ]
+  ask patches with [
+    pxcor >= -15 and pxcor <= 15 and
+    pycor >= 0 and pycor <= 20
+  ][ 
+    set pcolor gray 
+  ]
+end
+
+to setup-warehouse
+  ask patches [
+    if ((pxcor = -15 or pxcor = 15) and pycor >= 0 and pycor <= 20) [
+      set pcolor black
+      set wall? true
+    ]
+    if ((pycor = 0 or pycor = 20) and pxcor >= -15 and pxcor <= 15) [
+      set pcolor black
+      set wall? true
+    ]
+  ]
+end
+
+to setup-doors
+  ask patches [
+    if (pycor = 0) [
+      if (pxcor >= -15 and pxcor < -6) or (pxcor > 6 and pxcor <= 15) [
+        set pcolor black
+        set wall? true
+      ]
+      if (pxcor >= 0 and pxcor <= 8) [
+        set pcolor magenta
+        set doors? true
+        set wall? false
+      ]
+    ]
+  ]
+  
+  ask patches with [pxcor = -15 and pycor >= 9 and pycor <= 10] [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  ask patch 15 17 [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  ask patch 15 10 [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  ask patches with [pxcor >= -14 and pxcor <= -13 and pycor = 0] [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  create-markers 1 [
+    set shape "circle" 
+    set size 0.5 
+    set color black
+    setxy 7 -2
+    set label "Main Entrance"
+    set label-color black
+  ]
+end
+
+to setup-office
+  ask patches with [
+    pxcor >= -10 and pxcor <= -2 and
+    pycor >= 0 and pycor <= 4
+  ][ 
+    set pcolor gray + 1.5 
+  ]
+  
+  ask patches [
+    if ((pxcor = -10 or pxcor = -2) and pycor >= 0 and pycor <= 4) [
+      set pcolor black
+      set wall? true
+    ]
+    if ((pycor = 0 or pycor = 4) and pxcor >= -10 and pxcor <= -2) [
+      set pcolor black
+      set wall? true
+    ]
+  ]
+  
+  ask patch -3 4 [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  ask patch -8 0 [
+    set pcolor brown
+    set doors? true
+    set wall? false
+  ]
+  
+  create-markers 1 [
+    set shape "circle" 
+    set size 0.1 
+    set color black
+    setxy -3 2
+    set label "Meeting Room"
+    set label-color black
+  ]
+end
+
+to setup-shelves
+  ask patches with [pxcor >= -12 and pxcor <= -10 and pycor >= 6 and pycor <= 18] [
+    set pcolor brown + 1
+    set parcel? true
+  ]
+  ask patches with [pxcor >= -7 and pxcor <= -5 and pycor >= 6 and pycor <= 18] [
+    set pcolor brown + 1
+    set parcel? true
+  ]
+  ask patches with [pxcor >= -2 and pxcor <= 0 and pycor >= 6 and pycor <= 18] [
+    set pcolor brown + 1
+    set parcel? true
+  ]
+  ask patches with [pxcor >= 5 and pxcor <= 7 and pycor >= 6 and pycor <= 18] [
+    set pcolor brown + 1
+    set parcel? true
+  ]
+  ask patches with [pxcor >= 10 and pxcor <= 12 and pycor >= 6 and pycor <= 18] [
+    set pcolor brown + 1
+    set parcel? true
+  ]
+end
+
+to setup-forklifts
+  create-forklifts 6 [
+    set shape "car"
+    set color yellow
+    set size 2
+    set heading one-of [0 90 180 270]
+    ifelse who mod 2 = 0 [
+      move-to one-of patches with [pcolor = gray and pxcor >= -15 and pxcor <= 15]
+    ][
+      move-to one-of patches with [pcolor = green + 2 and abs pxcor > 15]
+    ]
+  ]
+end
+
+to setup-goods
+  create-goods 150 [
+    set shape "box"
+    set color blue - 2
+    set size 1.5
+    move-to one-of patches with [pcolor = brown + 1]
+  ]
+end
+
+to setup-lorries
+  create-lorries 2 [
+    set shape "truck" 
+    set color red 
+    set size 5
+    ifelse who mod 2 = 0 [ setxy -3 -10 ] [ setxy 3 -10 ]
+    set heading 0
+  ]
+end
+
+to setup-guardhouse
+  ask patches with [pxcor >= -19 and pxcor <= -17 and pycor >= -8 and pycor <= -6] [
+    set pcolor gray + 1
+  ]
+  
+  ask patches [
+    if ((pxcor = -19 or pxcor = -17) and pycor >= -8 and pycor <= -6) [
+      set pcolor black
+      set wall? true
+    ]
+    if ((pycor = -8 or pycor = -6) and pxcor >= -19 and pxcor <= -17) [
+      set pcolor black
+      set wall? true
+    ]
+  ]
+  
+  create-markers 1 [
+    set shape "circle" 
+    set size 0.1 
+    set color black
+    setxy -15 -5
+    set label "Guard House"
+    set label-color black
+  ]
+end
+
+to setup-assembly-points
+  ask patches with [pxcor >= -12 and pxcor <= -8 and pycor >= -12 and pycor <= -8] [
+    set pcolor green
+    set assembly? true
+  ]
+  ask patches with [pxcor >= 8 and pxcor <= 12 and pycor >= -12 and pycor <= -8] [
+    set pcolor green
+    set assembly? true
+  ]
+  
+  set assembly-point1 patch -10 -10
+  set assembly-point2 patch 10 -10
+  
+  create-markers 1 [
+    set shape "circle" 
+    set size 0 
+    setxy -7 -13.5
+    set label "Assembly Point"
+    set label-color black
+  ]
+  create-markers 1 [
+    set shape "circle"
+    set size 0
+    setxy 13 -13.5
+    set label "Assembly Point"
+    set label-color black
+  ]
+end
+
+to setup-people
+  create-people 10 [
+    set shape "person"
+    set color white
+    set size 1.5
+    set heading random 360
+    set evacuated? false
+  ]
+  
+  let coordinates [
+    [-9 12] [-4 12] [2 12] [8 12] [13 12]
+    [-9 1] [-6 2] [-3 3] [-19 -8] [-17 -6]
+  ]
+  
+  (foreach (sort people) coordinates [
+    [p coord] ->
+    ask p [ setxy (item 0 coord) (item 1 coord) ]
+  ])
+end
+
+to ignite-fire
+  let fire-candidates patches with [
+    pcolor = brown + 1 and
+    pxcor >= -15 and pxcor <= 15 and 
+    pycor >= 0 and pycor <= 20
+  ]
+  if any? fire-candidates [
+    ask one-of fire-candidates [
+      set burning? true
+      set pcolor red
+    ]
+  ]
+end
+
+to spread-fire
+  ask patches with [burning?] [
+    ask neighbors4 with [
+      not wall? and 
+      not burning? and
+      pxcor >= -15 and pxcor <= 15 and
+      pycor >= 0 and pycor <= 20
+    ] [
+      let chance 0.3
+      if parcel? [ set chance 0.5 ]
+      if random-float 1 < chance [
+        set burning? true
+        set pcolor red
+      ]
+    ]
+  ]
+end
+
+to move-people
+  ask people with [not evacuated?] [
+    if [burning?] of patch-here [ die ]
+    
+    if [assembly?] of patch-here [
+      set evacuated? true
+      set color green
+      stop
+    ]
+    
+    if [doors?] of patch-here [
+      let target-ap min-one-of (patch-set assembly-point1 assembly-point2) [distance myself]
+      face target-ap
+      let next-patch patch-ahead 1
+      if can-move-to? next-patch [
+        move-to next-patch
+      ]
+      stop
+    ]
+    
+    let target-door min-one-of patches with [doors? and not burning?] [distance myself]
+    if target-door != nobody [
+      face target-door
+      let next-patch patch-ahead 1
+      if can-move-to? next-patch [
+        move-to next-patch
+      ]
+      if not can-move-to? next-patch [
+        rt random 60 - 30
+      ]
+    ]
+  ]
+end
+
+to-report can-move-to? [target-patch]
+  if target-patch = nobody [ report false ]
+  report (not [wall?] of target-patch) and 
+         (not [burning?] of target-patch) and
+         (not [parcel?] of target-patch or [assembly?] of target-patch)
+end
+
+to go
+  ask forklifts [
+    if random 100 < 5 [ set heading one-of [0 90 180 270] ]
+    if can-move? 1 [ forward 1 ]
+  ]
+  
+  spread-fire
+  move-people
+  
+  tick
+end
