@@ -12,6 +12,7 @@ patches-own [burning? wall? parcel? doors? assembly?]
 globals [
   assembly-point1
   assembly-point2
+  meeting-room-door
 ]
 
 to setup
@@ -29,6 +30,7 @@ to setup
   setup-people
   reset-ticks
   ignite-fire
+  set meeting-room-door patch -3 4
 end
 
 to setup-ground
@@ -60,7 +62,7 @@ to setup-warehouse
     ]
   ]
 end
-
+;------------------------------------------------------------
 to setup-doors
   ask patches [
     if (pycor = 0) [
@@ -109,7 +111,7 @@ to setup-doors
     set label-color black
   ]
 end
-
+;--------------------------------------------------------------------------
 to setup-office
   ask patches with [
     pxcor >= -10 and pxcor <= -2 and
@@ -150,7 +152,7 @@ to setup-office
     set label-color black
   ]
 end
-
+;----------------------------------------------------------------------------------------
 to setup-shelves
   ask patches with [pxcor >= -12 and pxcor <= -10 and pycor >= 6 and pycor <= 18] [
     set pcolor brown + 1
@@ -173,21 +175,24 @@ to setup-shelves
     set parcel? true
   ]
 end
-
+;---------------------------------------------------------------------------------------
 to setup-forklifts
   create-forklifts 6 [
     set shape "car"
     set color yellow
     set size 2
     set heading one-of [0 90 180 270]
-    ifelse who mod 2 = 0 [
-      move-to one-of patches with [pcolor = gray and pxcor >= -15 and pxcor <= 15]
-    ][
-      move-to one-of patches with [pcolor = green + 2 and abs pxcor > 15]
+    ; Place forklifts randomly but not on walls or outside warehouse
+    move-to one-of patches with [
+      pcolor = gray and 
+      not wall? and 
+      pxcor >= -15 and pxcor <= 15 and 
+      pycor >= 0 and pycor <= 20
     ]
   ]
 end
 
+;--------------------------------------------------------------------------------------------
 to setup-goods
   create-goods 150 [
     set shape "box"
@@ -196,7 +201,7 @@ to setup-goods
     move-to one-of patches with [pcolor = brown + 1]
   ]
 end
-
+;--------------------------------------------------------------------------------------------
 to setup-lorries
   create-lorries 2 [
     set shape "truck" 
@@ -206,7 +211,7 @@ to setup-lorries
     set heading 0
   ]
 end
-
+;-----------------------------------------------------------------------
 to setup-guardhouse
   ask patches with [pxcor >= -19 and pxcor <= -17 and pycor >= -8 and pycor <= -6] [
     set pcolor gray + 1
@@ -232,7 +237,7 @@ to setup-guardhouse
     set label-color black
   ]
 end
-
+;-------------------------------------------------------------------------
 to setup-assembly-points
   ask patches with [pxcor >= -12 and pxcor <= -8 and pycor >= -12 and pycor <= -8] [
     set pcolor green
@@ -261,8 +266,9 @@ to setup-assembly-points
     set label-color black
   ]
 end
-
+;------------------------------------------------------------
 to setup-people
+  ; Create 10 people total (5 warehouse + 3 meeting room + 2 guard house)
   create-people 10 [
     set shape "person"
     set color white
@@ -271,17 +277,41 @@ to setup-people
     set evacuated? false
   ]
   
-  let coordinates [
-    [-9 12] [-4 12] [2 12] [8 12] [13 12]
-    [-9 1] [-6 2] [-3 3] [-19 -8] [-17 -6]
+  ; Place 5 random people in the warehouse (not in meeting room)
+  ask n-of 5 people [
+    move-to one-of patches with [
+      pcolor = gray and 
+      not wall? and 
+      pxcor >= -15 and pxcor <= 15 and 
+      pycor >= 0 and pycor <= 20 and
+      not (pxcor >= -10 and pxcor <= -2 and pycor >= 0 and pycor <= 4) ; Not in meeting room
+    ]
   ]
   
-  (foreach (sort people) coordinates [
-    [p coord] ->
-    ask p [ setxy (item 0 coord) (item 1 coord) ]
-  ])
+  ; Place 3 people in the meeting room
+  ask n-of 3 people with [
+    not any? patches in-radius 0 with [pcolor = gray + 1.5] ; Not already in meeting room
+  ] [
+    move-to one-of patches with [
+      pcolor = gray + 1.5 and  ; Meeting room color
+      not wall? and
+      pxcor >= -10 and pxcor <= -2 and
+      pycor >= 0 and pycor <= 4
+    ]
+  ]
+  
+  ; Place 2 people in the guard house
+  ask n-of 2 people with [
+    not any? patches in-radius 0 with [pxcor >= -19 and pxcor <= -17 and pycor >= -8 and pycor <= -6] ; Not already in guard house
+  ] [
+    move-to one-of patches with [
+      pxcor >= -19 and pxcor <= -17 and 
+      pycor >= -8 and pycor <= -6 and
+      not wall?
+    ]
+  ]
 end
-
+;--------------------------------------------------------------------
 to ignite-fire
   let fire-candidates patches with [
     pcolor = brown + 1 and
@@ -295,7 +325,7 @@ to ignite-fire
     ]
   ]
 end
-
+;--------------------------------------------------------------------
 to spread-fire
   ask patches with [burning?] [
     ask neighbors4 with [
@@ -312,8 +342,27 @@ to spread-fire
       ]
     ]
   ]
+  ; Spread fire to forklifts
+  ask forklifts with [not burning?] [
+    if any? patches in-radius 1 with [burning?] [
+      if random-float 1 < 0.7 [  ; Higher chance to catch fire when near flames
+        set burning? true
+        set color red
+      ]
+    ]
+  ]
+  
+  ; Make burning forklifts spread fire
+  ask forklifts with [burning?] [
+    ask patches in-radius 1 [
+      if not burning? and random-float 1 < 0.3 [
+        set burning? true
+        set pcolor red
+      ]
+    ]
+  ]
 end
-
+;-----------------------------------------------------------------------
 to move-people
   ask people with [not evacuated?] [
     if [burning?] of patch-here [ die ]
@@ -324,7 +373,8 @@ to move-people
       stop
     ]
     
-    if [doors?] of patch-here [
+    ; Check if at a door (but not the closed meeting room door)
+    if [doors?] of patch-here and patch-here != meeting-room-door [
       let target-ap min-one-of (patch-set assembly-point1 assembly-point2) [distance myself]
       face target-ap
       let next-patch patch-ahead 1
@@ -334,7 +384,13 @@ to move-people
       stop
     ]
     
-    let target-door min-one-of patches with [doors? and not burning?] [distance myself]
+    ; Find nearest door that isn't the closed meeting room door
+    let target-door min-one-of patches with [
+      doors? and 
+      not burning? and
+      self != meeting-room-door  ; Exclude the closed door
+    ] [distance myself]
+    
     if target-door != nobody [
       face target-door
       let next-patch patch-ahead 1
@@ -347,20 +403,50 @@ to move-people
     ]
   ]
 end
-
+;----------------------------------------------------------------------------
 to-report can-move-to? [target-patch]
   if target-patch = nobody [ report false ]
   report (not [wall?] of target-patch) and 
          (not [burning?] of target-patch) and
-         (not [parcel?] of target-patch or [assembly?] of target-patch)
+         (not [parcel?] of target-patch or [assembly?] of target-patch) and
+         (target-patch != meeting-room-door)  ; Block the meeting room door
 end
-
-to go
+;------------------------------------------------------------------------------
+to move-forklifts
   ask forklifts [
-    if random 100 < 5 [ set heading one-of [0 90 180 270] ]
-    if can-move? 1 [ forward 1 ]
+    ; Stop if fire is nearby (within 3 patches)
+    if any? patches in-radius 3 with [burning?] [ stop ]
+    
+    ; Random direction change occasionally
+    if random 100 < 5 [
+      set heading one-of [0 90 180 270]
+    ]
+    
+    ; Move forward if path is clear
+    let next-patch patch-ahead 1
+    if next-patch != nobody and 
+       not [wall?] of next-patch and 
+       not [parcel?] of next-patch and
+       not [burning?] of next-patch [
+      forward 1
+    ]
+    
+    ; If blocked, turn randomly
+    if [wall?] of patch-ahead 1 or [parcel?] of patch-ahead 1 [
+      rt random 60 - 30
+    ]
   ]
-  
+end
+;----------------------------------------------------------------------------
+to go
+     if meeting-room-door != nobody [  ; Safety check
+    ask meeting-room-door [
+      set pcolor black  ; Change color to indicate it's closed
+      set wall? true     ; Treat it as a wall
+      set doors? false   ; No longer considered a door
+    ]
+  ]
+  move-forklifts
   spread-fire
   move-people
   
