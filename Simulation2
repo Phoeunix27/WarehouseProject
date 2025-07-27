@@ -14,6 +14,8 @@ globals [
   assembly-point1
   assembly-point2
   meeting-room-door
+  dead-forklifts
+  dead-people
 ]
 
 to setup
@@ -32,6 +34,7 @@ to setup
   reset-ticks
   ignite-fire
   set meeting-room-door patch -3 4
+  set dead-people 0
 end
 
 to setup-ground
@@ -369,7 +372,12 @@ to move-people
   ask people with [not evacuated?] [
 
     ;; die if standing on fire
-    if [burning?] of patch-here [ die stop ]
+    if [burning?] of patch-here [
+      set dead-people dead-people + 1
+      die
+      stop
+    ]
+
 
     ;; reached assembly point
     if [assembly?] of patch-here [
@@ -425,7 +433,9 @@ to move-forklifts
   ask forklifts with [not evacuated?] [
 
     if [burning?] of patch-here [
+      set dead-forklifts dead-forklifts + 1
       die
+      set dead-forklifts 0
     ]
 
     if [assembly?] of patch-here [
@@ -463,41 +473,68 @@ to go
   tick
 end
 
+;;;SLIDER 
+;;SLIDER 1 [num-people]
+;;Minimum: 1
+;;Increment: 1
+;;Maximum: 50
+;;Value: 10
 
-;;MONITOR SERIES
-;;MONITOR 1- [Display Name] People Evacuated
-;;[Reporter] count people with [evacuated?]
-;;MONITOR 2- [Display Name] People Not Evacuated
-;;[Reporter] count people with [not evacuated?]
-;;MONITOR 3- [Display Name] Forklifts Evacuated
-;;[Reporter] count forklifts with [evacuated?]
-;;MONITOR 4- [Display Name] Forklifts Remaining
-;;[Reporter] count forklifts with [not evacuated?]
+;;SLIDER 2 [fire-spread-chance]
+;;Minimum:0.0
+;;Increment: 0.05
+;;Maximum: 1.0
+;;Value: 1.0
 
-;;PLOT SERIES
-;;PLOT 1- [Display Name] People Saved
-;;[Plot Setup Commands] set-current-plot "People Saved"
-;;plot count people with [evacuated?]
-;;[Pen Update]-Color GREEN
-;;[Pen Update Command]-plot count people with [evacuated?]
+;;SLIDER 3 [reaction-delay]
+;;Minimum: 0
+;;Increment: 1
+;;Maximum: 50
+;;Value: 5
 
-;;PLOT 2- [Display Name] People Lost
-;;[Plot Setup Command] set-current-plot "People Lost"
-;;plot (10 - count people)
-;;[Pen Update]-Color RED
-;;[Pen Update Command]-plot (10 - count people)
+;;MONITOR
+;; MONITOR 1 [People Evacuated]
+;;Reporter [count people with [evacuated?]
+;;Decimal places [17]
+;;Font Size [11]
 
-;;PLOT 3- [Display Name] Forklifts Evacuate 
-;;[Plot Setup Command] plot (count forklifts with [evacuated?]) / 6 * 100
-;;[Pen Update]-Color YELLOW
-;;[Pen Update Command]-plot count forklifts with [evacuated?]
+;; MONITOR 2 [People Not Evacuated]
+;;Reporter [count people with [not evacuated?]
+;;Decimal places [17]
+;;Font Size [11]
 
-;;SLIDER
-;;SLIDER 1- [Display Name] num-people
-;;Minimum: 1; Increment: 1; Maximum: 50; Value: 10
-;;SLIDER 2- [Display Name] fire-spread-chance
-;;Minimum: 0.0;,Increment: 0.05; Maximum: 1.0; Value: 0.25
-;;SLIDER 3- [Display Name] reaction-delay
-;;Minimum: 0; Increment: 1; Maximum: 50; Value: 9
+;; MONITOR 3 [People Lost]
+;;Reporter [dead-people]
+;;Decimal places [17]
+;;Font Size [11]
 
+;; MONITOR 4 [Forklift Not Evacuated]
+;;Reporter [count forklifts with [not evacuated?]
+;;Decimal places [17]
+;;Font Size [11]
 
+;; MONITOR 5 [Forklifts Evacuated]
+;;Reporter [count forklifts with [evacuated?]
+;;Decimal places [17]
+;;Font Size [11]
+
+;; MONITOR 6 [Forklifts Lost]
+;;Reporter [Dead-Forklifts]
+;;Decimal places [17]
+;;Font Size [11]
+
+;;PLOT 1 [People Status]
+;;x-axis label [Time (ticks)]
+;;y-axis label [People Count]
+;;plot update commands: 
+;;Color: GREEN  ;;plot count people with [evacuated?]
+;;Color: ORANGE ;;plot count people with [not evacuated?]
+;;Color: RED ;;plot dead-people
+
+;;PLOT 2 [Forklifts Status]
+;;x-axis label [Time (ticks)]
+;;y-axis label [Evacuated Count]
+;;plot update commands: 
+;;Color: GREEN  ;;plot count forklifts with [evacuated?]
+;;Color: ORANGE ;;plot count forklifts with [not evacuated?]
+;;Color: RED ;;plot dead-forklifts
