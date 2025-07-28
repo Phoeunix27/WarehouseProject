@@ -1,0 +1,107 @@
+;Initialize Simulation Environment
+PROCEDURE setup
+    Clear all previous data
+    Initialize ground and warehouse layout
+    Create shelves, walls, doors, offices, and guardhouse
+    Create assembly points
+    Spawn agents:
+        - People (5 in warehouse, 3 in meeting room, 2 in guardhouse)
+        - Forklifts (6 units)
+        - Lorries (2 static at loading bay)
+        - Goods (150 items on shelves)
+    Initialize agent properties: evacuated? ← false
+    Set fire-related variables:
+        - baseFireSpread ← 0.3
+        - spreadNearGoods ← 0.5
+        - forkliftIgnitionChance ← 0.7
+    Ignite fire on a random shelf (parcel)
+    Block the meeting room door
+    Set tick counter to 0
+END PROCEDURE
+
+;Ignite Initial Fire
+PROCEDURE ignite-fire
+    Select one random parcel patch
+    Set patch.burning? ← true
+    Change patch color to red
+END PROCEDURE
+
+;Main Simulation Loop
+PROCEDURE go
+    Block meeting room door to simulate real-world constraint
+    CALL move-forklifts
+    CALL spread-fire
+    CALL move-people
+    Increment tick
+END PROCEDURE
+
+;Fire Spread Mechanism
+PROCEDURE spread-fire
+    FOR EACH patch WHERE patch.burning? IS true:
+        FOR EACH neighbor patch (north, south, east, west):
+            IF patch IS not wall AND not already burning:
+                IF patch has parcel THEN
+                    fireChance ← spreadNearGoods
+                ELSE
+                    fireChance ← baseFireSpread
+                END IF
+                IF random() < fireChance THEN
+                    patch.burning? ← true
+                    patch color ← red
+                END IF
+            END IF
+        END FOR
+    END FOR
+
+    FOR EACH forklift NEAR burning patches:
+        IF random() < forkliftIgnitionChance THEN
+            forklift.burning? ← true
+            forklift color ← red
+        END IF
+    END FOR
+END PROCEDURE
+
+
+;People Evacuation Behaviour
+PROCEDURE move-people
+    FOR EACH person WHERE evacuated? = false:
+        IF standing on burning patch THEN
+            Remove person from simulation (die)
+        ELSE IF standing on assembly point THEN
+            evacuated? ← true
+            color ← green
+        ELSE IF person INSIDE warehouse (pycor ≥ 0) THEN
+            Move toward nearest visible safe door
+            Apply random panic angle (±30°)
+        ELSE IF person OUTSIDE warehouse (pycor < 0) THEN
+            Move toward nearest assembly point
+            Apply panic angle
+        END IF
+    END FOR
+END PROCEDURE
+
+;Forklift Evacuation Behaviour
+PROCEDURE move-forklifts
+    FOR EACH forklift WHERE evacuated? = false:
+        IF standing on burning patch THEN
+            Remove forklift from simulation (die)
+        ELSE IF standing on assembly point THEN
+            evacuated? ← true
+            color ← green
+        ELSE
+            Move directly toward nearest assembly point
+            Apply panic angle (±30°)
+        END IF
+    END FOR
+END PROCEDURE
+
+;Movement Validation
+FUNCTION can-move-to(targetPatch)
+    RETURN TRUE IF:
+        targetPatch is not wall
+        AND not burning
+        AND not a parcel (unless it's an assembly patch)
+        AND not the meeting room door
+    ELSE RETURN FALSE
+END FUNCTION
+
